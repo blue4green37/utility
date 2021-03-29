@@ -1,0 +1,97 @@
+==== Wireguard VM Setup ====
+
+sudo -i
+
+ufw allow from 49.144.0.0/16 to any port 22 proto tcp
+ufw allow from 35.221.0.0/16 to any port 22 proto tcp
+# WIREGUARD_ALLOW_49.144.0.0/16_TO_PORT_45414
+ufw allow from 49.144.0.0/16 to any port 45414 proto udp
+ufw logging off
+ufw enable
+ufw status verbose
+
+nano /etc/sysctl.conf
+ Uncomment "net.ipv4.ip_forward=1"
+ Add       "vm.swappiness=5"
+
+rm -r /opt/microsoft
+reboot
+
+apt-get update
+apt-get install wireguard
+mkdir wg-key-server wg-key-client
+
+cd wg-key-server
+umask 077; wg genkey | tee privatekey | wg pubkey > publickey
+# SAVE_WIREGUARD_SERVER_PRIVATEKEY_AND_PUBLICKEY
+cat privatekey
+cat publickey
+
+cd ~/wg-key-client
+umask 077; wg genkey | tee privatekey | wg pubkey > publickey
+# SAVE_WIREGUARD_CLIENT_PRIVATEKEY_AND_PUBLICKEY
+cat privatekey
+cat publickey
+
+nano /etc/wireguard/wg0.conf
+
+========================
+
+wg-quick up wg0
+wg-quick down wg0
+
+systemctl enable wg-quick@wg0
+systemctl start wg-quick@wg0
+systemctl stop wg-quick@wg0
+systemctl status wg-quick@wg0
+
+==== Wireguard Server config file (wg0.conf) ====
+
+[Interface]
+PrivateKey = <SERVER_PRIVATEKEY>
+Address = 192.168.4.1/24
+ListenPort = 45414
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+PublicKey = <CLIENT_PUBLICKEY>
+AllowedIPs = 192.168.4.2
+PersistentKeepalive = 25
+
+
+==== Wireguard Client config file ====
+
+[Interface]
+PrivateKey = <CLIENT_PRIVATEKEY>
+Address = 192.168.69.2/24
+
+[Peer]
+PublicKey = <SERVER_PUBLICKEY>
+Endpoint = <SERVER_PUBLIC_IP>:45414
+AllowedIPs = 0.0.0.0/0
+
+
+==== Example ====
+
+# Client 1
+
+[Interface]
+PrivateKey = AF7x87kPpj1PMNQ1YatpmP39ocATQkMlhDAqEWN6FW8=
+Address = 192.168.69.2/24
+
+[Peer]
+PublicKey = vXRXmykR8yIA5kogWVIV6xj1qlEB8eszqG+rVfZcghE=
+Endpoint = 23.96.34.46:45414
+AllowedIPs = 0.0.0.0/0
+
+# Client 2
+
+[Interface]
+PrivateKey = QNMQ3cBw+janCuP9YO8dS8OTkvz9pwrHiqrntmIQRmA=
+Address = 192.168.69.3/24
+
+[Peer]
+PublicKey = vXRXmykR8yIA5kogWVIV6xj1qlEB8eszqG+rVfZcghE=
+Endpoint = 23.96.34.46:45414
+AllowedIPs = 0.0.0.0/0
