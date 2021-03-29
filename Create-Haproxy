@@ -1,0 +1,35 @@
+sudo -i
+apt-get update
+apt-get install haproxy
+systemctl status haproxy
+
+systemctl stop haproxy
+
+cd /etc/haproxy
+rm -r errors haproxy.cfg
+
+nano haproxy.cfg
+
+systemctl start haproxy
+
+
+# OPTIONAL
+systemctl enable haproxy
+
+# Inside "haproxy.cfg"
+
+global
+    maxconn 50000
+
+defaults
+    mode tcp
+    timeout connect 5s
+    timeout client 30s
+    timeout server 30s
+
+frontend db
+    bind :80
+    default_backend databases
+
+backend databases
+    server db1 xmr.f2pool.com:13531
